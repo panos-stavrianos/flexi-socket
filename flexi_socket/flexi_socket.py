@@ -9,7 +9,7 @@ from flexi_socket.constraints import Protocol, Mode
 class FlexiSocket:
     def __init__(self, mode: Union[Mode.SERVER, Mode.CLIENT] = Mode.SERVER,
                  protocol: Union[Protocol.TCP, Protocol.UDP] = Protocol.TCP,
-                 host="0.0.0.0", port=None, classifier=None):
+                 host="0.0.0.0", port=None, classifier=None, read_buffer_size=-1):
         self.mode = mode
         self.protocol = protocol
 
@@ -25,6 +25,8 @@ class FlexiSocket:
         self.after_receive_handlers = {}
         self.post_send_handlers = {}
         self.is_running = False
+
+        self.read_buffer_size = read_buffer_size
 
     def start(self):
         if self.is_running:
@@ -50,7 +52,8 @@ class FlexiSocket:
                                 classifier=self.classifier,
                                 after_receive_handlers=self.after_receive_handlers,
                                 before_send_handlers=self.post_send_handlers,
-                                receive_handlers=self.handlers)
+                                receive_handlers=self.handlers,
+                                read_buffer_size=self.read_buffer_size)
         self.connections.append(connection)
         if self.on_connect_handler is not None:
             await self.on_connect_handler(connection)
@@ -69,7 +72,8 @@ class FlexiSocket:
                             classifier=self.classifier,
                             after_receive_handlers=self.after_receive_handlers,
                             before_send_handlers=self.post_send_handlers,
-                            receive_handlers=self.handlers)
+                            receive_handlers=self.handlers,
+                            read_buffer_size=self.read_buffer_size)
 
         self.connections.append(client)
         if self.on_connect_handler is not None:

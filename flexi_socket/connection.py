@@ -9,10 +9,12 @@ class Connection:
                  classifier=None,
                  after_receive_handlers=None,
                  before_send_handlers=None,
-                 receive_handlers=None):
+                 receive_handlers=None,
+                 read_buffer_size=-1):
         self.address = writer.get_extra_info('peername')[0]
         self.port = writer.get_extra_info('peername')[1]
 
+        self.read_buffer_size = read_buffer_size
         self.client_type = client_type
         self.reader = reader
         self.writer = writer
@@ -53,12 +55,14 @@ class Connection:
         self.history.append(Message(message, processed_message, from_server=True))
         processed_message = processed_message.encode()
         self.writer.write(processed_message)
+        self.writer.write_eof()
+
         await self.writer.drain()
 
     async def receive(self):
         while True:
             try:
-                message = (await self.reader.read(1024)).decode()
+                message = (await self.reader.read(self.read_buffer_size)).decode()
             except ConnectionResetError:
                 self.status = "disconnected"
                 break
@@ -74,7 +78,7 @@ class Connection:
             self.history.append(Message(message, processed_message, from_client=True))
 
             if self.receive_handler:
-                asyncio.create_task(self.receive_handler(self, processed_message))
+                await asyncio.create_task(self.receive_handler(self, processed_message))
 
         print(f"TCP connection from {self} closed")
         try:
