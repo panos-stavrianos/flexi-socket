@@ -25,7 +25,7 @@ setup(
     license="MIT license",
     include_package_data=True,
     keywords=['flexi_socket', 'socket', 'asyncio', 'async', 'tcp', 'udp', 'socket wrapper'],
-    name='py_directus',
+    name='flexi-socket',
     packages=find_packages(include=['flexi_socket', 'flexi_socket.*']),
     url='https://github.com/panos-stavrianos/flexi-socket',
     version=version,
