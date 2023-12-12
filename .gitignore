@@ -1,0 +1,12 @@
+# Development
+venv/
+.idea/
+.vscode/
+build/
+dist/
+py_directus.egg-info/
+# Cache
+__pycache__/
+
+# Environment
+.env
