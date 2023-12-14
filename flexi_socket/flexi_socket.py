@@ -34,7 +34,7 @@ class FlexiSocket:
                  host="0.0.0.0", port=None, classifier=None, read_buffer_size=-1):
         self.mode = mode
         self.protocol = protocol
-
+        self.stop_event = asyncio.Event()
         self.host = host
         if port is None:
             raise ValueError("Port cannot be None, please specify a port.")
@@ -52,19 +52,11 @@ class FlexiSocket:
         self.read_buffer_size = read_buffer_size
 
     def start(self):
-        if self.state == State.RUNNING:
-            return
+        asyncio.run(self.start_async())
 
-        self.state = State.STARTING
-
-        if self.protocol == Protocol.TCP:
-            if self.mode == Mode.SERVER:
-                asyncio.run(self.tcp_server())
-            elif self.mode == Mode.CLIENT:
-                asyncio.run(self.tcp_client())
-
-        elif self.protocol == Protocol.UDP:
-            raise NotImplementedError
+    def stop(self):
+        print("Stopping server")
+        self.stop_event.set()
 
     async def start_async(self):
         if self.state == State.RUNNING:
@@ -80,12 +72,14 @@ class FlexiSocket:
         elif self.protocol == Protocol.UDP:
             raise NotImplementedError
 
-    def stop(self):
-        self.state = State.STOPPING
-
     async def stop_async(self):
-        self.state = State.STOPPING
-        while self.state != State.STOPPED:
+        print("Stopping server!!!")
+        if self.state != State.RUNNING:
+            return
+        self.stop_event.set()
+
+        while self.state == State.STOPPED:
+            print("Waiting for server to stop", self.state)
             await asyncio.sleep(1)
 
     async def tcp_client(self):
@@ -101,27 +95,19 @@ class FlexiSocket:
             await self.on_connect_handler(connection)
 
     async def tcp_server(self):
-        _server = await asyncio.start_server(
-            self.handle_client_tcp, self.host, self.port
-        )
-        print(f"TCP server listening on {self.host}:{self.port}")
-        # _server.start_serving()
+        _server = await asyncio.start_server(self.handle_client_tcp, self.host, self.port)
+        print(f"FlexiSocket: TCP listening on {self.host}:{self.port}")
         try:
             async with _server:
-                # await _server.serve_forever()
                 self.state = State.RUNNING
-                while self.state == State.RUNNING:
-                    await asyncio.sleep(1)
+                await self.stop_event.wait()
         except Exception as e:
-            print(e)
+            pass
+        except asyncio.CancelledError:
+            pass
         finally:
-            self.state = State.STOPPING
-            if _server.is_serving():
-                _server.close()
-                await _server.wait_closed()
-
-        print("Server stopped")
-        self.state = State.STOPPED
+            print("FlexiSocket: server stopped")
+            self.state = State.STOPPED
 
     def add_listener(self, listener: Listener, handler):
         if listener == Listener.ON_CONNECT:
