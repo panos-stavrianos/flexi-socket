@@ -67,10 +67,10 @@ class FlexiSocket:
             raise NotImplementedError
 
     async def start_async(self):
-        if self.is_running:
+        if self.state == State.RUNNING:
             return
 
-        self.is_running = True
+        self.state = State.STARTING
 
         if self.protocol == Protocol.TCP:
             if self.mode == Mode.SERVER:
