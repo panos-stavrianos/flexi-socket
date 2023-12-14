@@ -14,6 +14,11 @@ while True:
         print(f"Connected to {connection}")
         await connection.send("!!Hello from client 1")
 
+    @client.on_disconnect()
+    async def on_disconnect_(connection: Connection):
+        print(f"Disconnected from {connection}")
+
 
     client.start()
-    sleep(1)
+    client.stop()
+    sleep(10)

@@ -29,6 +29,11 @@ async def on_connect(connection: Connection):
     print(f"Connected to {connection}")
 
 
+@server.on_disconnect()
+async def on_disconnect(connection: Connection):
+    print(f"Disconnected from {connection}")
+
+
 @server.on_message(ClientTypes.client_types[0])
 async def handle_client_001(client: Connection, message: str):
     if client.is_first_message_from_client:
