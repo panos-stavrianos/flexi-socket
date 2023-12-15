@@ -135,7 +135,8 @@ class FlexiSocket:
         if self.on_connect_handler is not None:
             await self.on_connect_handler(client)
         await client.receive()
-        await self.on_disconnect_handler(client)
+        if self.on_disconnect_handler:
+            await self.on_disconnect_handler(client)
         self.connections.remove(client)
 
     def on_connect(self):

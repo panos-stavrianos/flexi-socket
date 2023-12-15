@@ -18,4 +18,15 @@ async def on_message(client: Connection, message: str):
     await client.send("Hello from server! You are type 001")
 
 
+@server.on_connect()
+async def on_connect(client: Connection):
+    print(f"Client {client} connected!")
+    client.data = "some data"
+
+
+@server.on_disconnect()
+async def on_disconnect(client: Connection):
+    print(f"Client {client.data} disconnected!")
+
+
 server.start()

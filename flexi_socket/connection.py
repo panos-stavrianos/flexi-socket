@@ -21,7 +21,7 @@ class Connection:
         self.history = []
         self.status = "connected"
         self.state = None
-
+        self.data = None
         self.classifier = classifier
 
         self.after_receive_handlers = after_receive_handlers
