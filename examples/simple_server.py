@@ -4,7 +4,7 @@ from flexi_socket import Protocol, Mode
 
 server = FlexiSocket(mode=Mode.SERVER,
                      protocol=Protocol.TCP,
-                     port=8081, read_buffer_size=1024)
+                     port=8009, read_buffer_size=1024)
 
 
 @server.on_message()

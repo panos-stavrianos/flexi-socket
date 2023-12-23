@@ -1,11 +1,16 @@
 import asyncio
 
+import contextlib
 from flexi_socket.message import Message
+from flexi_socket.message_packaging import EOFStrategy, MessageStrategy
+
+
 
 
 class Connection:
     def __init__(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter,
                  client_type=None,
+                 message_strategy: MessageStrategy = EOFStrategy(),
                  classifier=None,
                  after_receive_handlers=None,
                  before_send_handlers=None,
@@ -32,6 +37,10 @@ class Connection:
         self.before_send_handler = None
         self.receive_handler = None
 
+        self.message_strategy = message_strategy
+        self.message_strategy.reader = self.reader
+        self.message_strategy.writer = self.writer
+
     @property
     def is_connected(self):
         return self.status == "connected"
@@ -54,15 +63,17 @@ class Connection:
             processed_message = await self.before_send_handler(self, message)
         self.history.append(Message(message, processed_message, from_server=True))
         processed_message = processed_message.encode()
-        self.writer.write(processed_message)
-        self.writer.write_eof()
-
+        # self.writer.write(processed_message)
+        await self.message_strategy.send(processed_message)
         await self.writer.drain()
 
-    async def receive(self):
+    async def receive(self,as_bytes=False):
         while True:
             try:
-                message = (await self.reader.read(self.read_buffer_size)).decode()
+                # message = (await self.reader.read(self.read_buffer_size)).decode()
+                message = await self.message_strategy.receive()
+                if not as_bytes:
+                    message = message.decode()
             except ConnectionResetError:
                 self.status = "disconnected"
                 break
@@ -81,10 +92,8 @@ class Connection:
                 await asyncio.create_task(self.receive_handler(self, processed_message))
 
         print(f"TCP connection from {self} closed")
-        try:
+        with contextlib.suppress(ConnectionResetError):
             await self.close()
-        except ConnectionResetError as e:
-            pass
 
     async def close(self):
         self.writer.close()
