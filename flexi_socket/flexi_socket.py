@@ -1,10 +1,13 @@
+# flexi_socket.py
 import asyncio
+import traceback
 from enum import Enum
 from typing import Union
 
 from flexi_socket.client_classifier import ClientClassifier
 from flexi_socket.connection import Connection
 from flexi_socket.constraints import Protocol, Mode
+from flexi_socket.message_packaging import MessageStrategy, EOFStrategy
 
 
 class Listener(Enum):
@@ -31,8 +34,10 @@ class State(Enum):
 class FlexiSocket:
     def __init__(self, mode: Union[Mode.SERVER, Mode.CLIENT] = Mode.SERVER,
                  protocol: Union[Protocol.TCP, Protocol.UDP] = Protocol.TCP,
+                 message_strategy: MessageStrategy = EOFStrategy(),
                  host="0.0.0.0", port=None, classifier=None, read_buffer_size=-1):
         self.mode = mode
+        self.message_strategy = message_strategy
         self.protocol = protocol
         self.stop_event = asyncio.Event()
         self.host = host
@@ -65,49 +70,51 @@ class FlexiSocket:
         self.state = State.STARTING
 
         if self.protocol == Protocol.TCP:
-            if self.mode == Mode.SERVER:
-                await self.tcp_server()
-            elif self.mode == Mode.CLIENT:
-                await self.tcp_client()
+            await self.tcp_socket()
         elif self.protocol == Protocol.UDP:
             raise NotImplementedError
 
     async def stop_async(self):
-        print("Stopping server!!!")
+        print(f"Stopping {self}!!!", self.state)
         if self.state != State.RUNNING:
             return
         self.stop_event.set()
+        print(f"Emitting stop event {self.stop_event.is_set()}")
 
         while self.state == State.STOPPED:
             print("Waiting for server to stop", self.state)
             await asyncio.sleep(1)
 
-    async def tcp_client(self):
-        _reader, _writer = await asyncio.open_connection(self.host, self.port)
-        connection = Connection(reader=_reader, writer=_writer,
-                                classifier=self.classifier,
-                                after_receive_handlers=self.after_receive_handlers,
-                                before_send_handlers=self.post_send_handlers,
-                                receive_handlers=self.handlers,
-                                read_buffer_size=self.read_buffer_size)
-        self.connections.append(connection)
-        if self.on_connect_handler is not None:
-            await self.on_connect_handler(connection)
-
-    async def tcp_server(self):
-        _server = await asyncio.start_server(self.handle_client_tcp, self.host, self.port)
-        print(f"FlexiSocket: TCP listening on {self.host}:{self.port}")
-        try:
-            async with _server:
+    async def tcp_socket(self):
+        socket = None
+        if self.mode == Mode.SERVER:
+            socket = await asyncio.start_server(self.handle_new_connection_tcp, self.host, self.port)
+            try:
+                async with socket:
+                    self.state = State.RUNNING
+                    await self.stop_event.wait()
+            except Exception as e:
+                traceback.print_exc()
+            except asyncio.CancelledError as e:
+                traceback.print_exc()
+                raise e
+            finally:
+                await self.message_strategy.close()
+                self.state = State.STOPPED
+        elif self.mode == Mode.CLIENT:
+            _reader, _writer = await asyncio.open_connection(self.host, self.port)
+            socket = asyncio.create_task(self.handle_new_connection_tcp(_reader, _writer))
+            try:
                 self.state = State.RUNNING
                 await self.stop_event.wait()
-        except Exception as e:
-            pass
-        except asyncio.CancelledError:
-            pass
-        finally:
-            print("FlexiSocket: server stopped")
-            self.state = State.STOPPED
+            except Exception as e:
+                traceback.print_exc()
+            except asyncio.CancelledError as e:
+                traceback.print_exc()
+                raise e
+            finally:
+                await self.message_strategy.close()
+                self.state = State.STOPPED
 
     def add_listener(self, listener: Listener, handler):
         if listener == Listener.ON_CONNECT:
@@ -123,21 +130,25 @@ class FlexiSocket:
         else:
             raise ValueError(f"Unknown listener {listener}, please use one of {Listener}")
 
-    async def handle_client_tcp(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        client = Connection(reader=reader, writer=writer,
-                            classifier=self.classifier,
-                            after_receive_handlers=self.after_receive_handlers,
-                            before_send_handlers=self.post_send_handlers,
-                            receive_handlers=self.handlers,
-                            read_buffer_size=self.read_buffer_size)
+    async def handle_new_connection_tcp(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        connection = Connection(reader=reader, writer=writer,
+                                classifier=self.classifier,
+                                message_strategy=self.message_strategy,
+                                after_receive_handlers=self.after_receive_handlers,
+                                before_send_handlers=self.post_send_handlers,
+                                receive_handlers=self.handlers,
+                                read_buffer_size=self.read_buffer_size)
 
-        self.connections.append(client)
+        self.connections.append(connection)
         if self.on_connect_handler is not None:
-            await self.on_connect_handler(client)
-        await client.receive()
+            await self.on_connect_handler(connection)
+        try:
+            await connection.receive()
+        except asyncio.CancelledError:
+            await connection.close()
         if self.on_disconnect_handler:
-            await self.on_disconnect_handler(client)
-        self.connections.remove(client)
+            await self.on_disconnect_handler(connection)
+        self.connections.remove(connection)
 
     def on_connect(self):
         def decorator(func):
@@ -194,3 +205,6 @@ class FlexiSocket:
             return wrapper
 
         return decorator
+
+    def __str__(self):
+        return f"FlexiSocket: {self.mode}, {self.protocol}, {self.host}:{self.port}"

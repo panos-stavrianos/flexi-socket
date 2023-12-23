@@ -63,7 +63,7 @@ async def handle_client_001_before_send(client: Connection, message: str) -> str
 
 @server.on_message(ClientTypes.client_types[1], ClientTypes.client_types[2])
 async def handle_client_002_or_003(client: Connection, message: str):
-    print(f"Client {client.address}:{client.port} type of {client.client_type} sent {message}")
+    print(f"Client {client.address}:{client.port} type of {client.selected_classifier} sent {message}")
     await client.send("Hello from server! You are type 002 or 003")
 
 

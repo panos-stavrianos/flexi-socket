@@ -12,7 +12,7 @@ equipped with message classification and string message handling, suitable for a
 
 ## Installation
 
-```python
+```shell
 pip install flexi-socket
 ```
 

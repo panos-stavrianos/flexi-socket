@@ -1,5 +1,9 @@
+# message_packaging.py
+from __future__ import annotations
+
 import asyncio
 from abc import ABC
+
 
 class MessageStrategy(ABC):
     reader: asyncio.StreamReader
@@ -21,16 +25,26 @@ class MessageStrategy(ABC):
         self.writer.close()
         await self.writer.wait_closed()
 
+        self.reader.feed_eof()
+
+    def __str__(self):
+        return f"{self.__class__.__name__}"
+
+
 class EOFStrategy(MessageStrategy):
 
     async def send(self, message):
-        message = message.encode()
+        if isinstance(message, str):
+            message = message.encode()
+
         self.writer.write(message)
         self.writer.write_eof()
         await self.writer.drain()
 
-    async def receive(self)->bytes:
+    async def receive(self) -> bytes:
+
         return await self.reader.read(-1)
+
 
 class SeparatorStrategy(MessageStrategy):
     separator: str
@@ -38,14 +52,22 @@ class SeparatorStrategy(MessageStrategy):
     def __init__(self, separator: str = "\n"):
         self.separator = separator
 
-    async def send(self, message):
-        message = message.encode()
+    async def send(self, message: bytes | str):
+        if isinstance(message, str):
+            message = message.encode()
+
         message += self.separator.encode()
         self.writer.write(message)
+        print("Sending", message)
+
         await self.writer.drain()
 
     async def receive(self):
-        return await self.reader.readuntil(self.separator.encode())
+        print("Receiving")
+        res = await self.reader.readuntil(self.separator.encode())
+        print("Received####@!@!!@@", res)
+        return res
+
 
 class FixedLengthStrategy(MessageStrategy):
     length: int
@@ -62,6 +84,7 @@ class FixedLengthStrategy(MessageStrategy):
     async def receive(self):
         return await self.reader.read(self.length)
 
+
 class TimeoutStrategy(MessageStrategy):
     timeout: int
 
@@ -74,7 +97,7 @@ class TimeoutStrategy(MessageStrategy):
         await self.writer.drain()
 
     async def receive(self):
-         while True:
+        while True:
             try:
                 return await asyncio.wait_for(self.reader.read(-1), timeout=self.timeout)
             except asyncio.TimeoutError:
