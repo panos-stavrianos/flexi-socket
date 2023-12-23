@@ -42,8 +42,6 @@ class Connection:
         self.message_strategy.reader = self.reader
         self.message_strategy.writer = self.writer
 
-        print(f"TCP connection from {self} opened")
-
     def __str__(self):
         return f"Connection:  {self.address}:{self.port}, {self.status}, {self.state}, {self.message_strategy}"
 
@@ -99,7 +97,6 @@ class Connection:
             if self.receive_handler:
                 await asyncio.create_task(self.receive_handler(self, processed_message))
 
-        print(f"TCP connection from {self} closed")
         with contextlib.suppress(ConnectionResetError):
             await self.close()
 
