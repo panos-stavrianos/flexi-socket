@@ -90,9 +90,7 @@ class FixedLengthStrategy(MessageStrategy):
         await self.writer.drain()
 
     async def receive(self):
-        print("waiting for read", self.__repr__())
         data = await self.reader.read(self.length)
-        print("read data", data)
         return data
 
 
