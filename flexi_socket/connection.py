@@ -38,9 +38,8 @@ class Connection:
         self.before_send_handler = None
         self.receive_handler = None
 
-        self.message_strategy = message_strategy
-        self.message_strategy.reader = self.reader
-        self.message_strategy.writer = self.writer
+        self.message_strategy = message_strategy.clone()
+        self.message_strategy.set_reader_writer(reader, writer)
 
         print(f"TCP connection from {self} opened")
 

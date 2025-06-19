@@ -1,10 +1,11 @@
 from flexi_socket import Connection
 from flexi_socket import FlexiSocket
-from flexi_socket import Protocol, Mode
+from flexi_socket import Protocol, Mode, FixedLengthStrategy
 
 server = FlexiSocket(mode=Mode.SERVER,
                      protocol=Protocol.TCP,
-                     port=8009, read_buffer_size=1024)
+                     port=8009, read_buffer_size=1024,
+                     message_strategy=FixedLengthStrategy(4096))
 
 
 @server.on_message()
@@ -14,8 +15,7 @@ async def on_message(client: Connection, message: str):
     print(f"Client {client} sent {message}")
     client.state = "some state"
 
-    client.print_history()
-    await client.send("Hello from server! You are type 001")
+    print(message)
 
 
 @server.on_connect()
