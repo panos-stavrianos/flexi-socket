@@ -60,7 +60,6 @@ class FlexiSocket:
         asyncio.run(self.start_async())
 
     def stop(self):
-        print("Stopping server")
         self.stop_event.set()
 
     async def start_async(self):
@@ -75,14 +74,11 @@ class FlexiSocket:
             raise NotImplementedError
 
     async def stop_async(self):
-        print(f"Stopping {self}!!!", self.state)
         if self.state != State.RUNNING:
             return
         self.stop_event.set()
-        print(f"Emitting stop event {self.stop_event.is_set()}")
 
         while self.state == State.STOPPED:
-            print("Waiting for server to stop", self.state)
             await asyncio.sleep(1)
 
     async def tcp_socket(self):

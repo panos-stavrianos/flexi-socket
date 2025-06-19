@@ -68,15 +68,11 @@ class SeparatorStrategy(MessageStrategy):
 
         message += self.separator.encode()
         self.writer.write(message)
-        print("Sending", message)
 
         await self.writer.drain()
 
     async def receive(self):
-        print("Receiving")
-        res = await self.reader.readuntil(self.separator.encode())
-        print("Received####@!@!!@@", res)
-        return res
+        return await self.reader.readuntil(self.separator.encode())
 
 
 class FixedLengthStrategy(MessageStrategy):
